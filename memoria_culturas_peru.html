@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Culturas del Perú - Juego de Memoria</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f0e8; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 24px 16px; }
+  h1 { font-size: 22px; font-weight: 600; color: #2c1a00; margin-bottom: 4px; text-align: center; }
+  .subtitle { font-size: 13px; color: #7a6040; margin-bottom: 16px; }
+  #stats { display: flex; gap: 24px; font-size: 14px; color: #7a6040; margin-bottom: 12px; }
+  #stats b { color: #2c1a00; }
+  #msg { font-size: 14px; font-weight: 500; color: #185FA5; min-height: 20px; margin-bottom: 8px; }
+  #grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; max-width: 560px; }
+  .card { aspect-ratio: 3/4; cursor: pointer; perspective: 600px; }
+  .card-inner { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.45s ease; border-radius: 10px; }
+  .card.flipped .card-inner, .card.matched .card-inner { transform: rotateY(180deg); }
+  .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .card-front { background: #e8dfc8; border: 2px solid #c8b89a; }
+  .card-front-icon { font-size: 32px; color: #c8b89a; }
+  .card-back { transform: rotateY(180deg); padding: 8px; text-align: center; border: 2px solid transparent; }
+  .card.matched .card-back { border-color: #1D9E75 !important; }
+  .card-back .emoji { font-size: 34px; margin-bottom: 6px; }
+  .card-back .cultura { font-size: 11px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .card-back .dato { font-size: 10px; line-height: 1.4; }
+
+  .c-inca .card-back    { background: #FFF3CC; border-color: #e8c94a; } .c-inca .cultura { color: #7a4a00; } .c-inca .dato { color: #5a3600; }
+  .c-moche .card-back   { background: #FAECE7; border-color: #e8a080; } .c-moche .cultura { color: #8b2000; } .c-moche .dato { color: #6b1500; }
+  .c-nazca .card-back   { background: #E6F1FB; border-color: #80b8f0; } .c-nazca .cultura { color: #0d4a8a; } .c-nazca .dato { color: #0a3570; }
+  .c-tiwanaku .card-back{ background: #EEEDFE; border-color: #a8a0e8; } .c-tiwanaku .cultura { color: #3a2a9a; } .c-tiwanaku .dato { color: #2a1a80; }
+  .c-chimu .card-back   { background: #E1F5EE; border-color: #80d8b8; } .c-chimu .cultura { color: #0a5a3a; } .c-chimu .dato { color: #084028; }
+  .c-paracas .card-back { background: #FBEAF0; border-color: #e8a0c0; } .c-paracas .cultura { color: #7a1a40; } .c-paracas .dato { color: #5a1030; }
+  .c-wari .card-back    { background: #EAF3DE; border-color: #a8d870; } .c-wari .cultura { color: #2a5a08; } .c-wari .dato { color: #1a4005; }
+  .c-chavin .card-back  { background: #FDF0D8; border-color: #e8b860; } .c-chavin .cultura { color: #6a3800; } .c-chavin .dato { color: #4a2500; }
+
+  #controls { margin-top: 14px; display: flex; gap: 10px; }
+  button { font-size: 13px; padding: 7px 20px; border: 1.5px solid #c8b89a; background: #fff; border-radius: 8px; cursor: pointer; font-family: inherit; color: #2c1a00; transition: background 0.15s; }
+  button:hover { background: #f0e8d8; }
+  #win-panel { display: none; flex-direction: column; align-items: center; gap: 12px; padding: 28px; background: #fff; border: 1.5px solid #c8b89a; border-radius: 14px; max-width: 440px; text-align: center; margin-top: 16px; }
+  #win-panel h2 { font-size: 20px; font-weight: 600; color: #2c1a00; }
+  #win-panel p { font-size: 14px; color: #7a6040; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<h1>🏛️ Culturas del Perú</h1>
+<p class="subtitle">Encuentra las parejas — secundaria</p>
+<div id="stats">
+  <span>Intentos: <b id="moves">0</b></span>
+  <span>Parejas: <b id="pairs">0</b> / 8</span>
+</div>
+<div id="msg"></div>
+<div id="grid"></div>
+<div id="controls">
+  <button id="btn-reset">🔄 Reiniciar</button>
+</div>
+<div id="win-panel">
+  <div style="font-size:48px">🏆</div>
+  <h2>¡Completaste el juego!</h2>
+  <p id="win-msg"></p>
+  <button id="btn-win-reset">Jugar de nuevo</button>
+</div>
+
+<script>
+const culturas = [
+  { id:'inca',     cls:'c-inca',     emoji:'🏔️', nombre:'Inca',     dato:'Imperio más grande de América. Capital: Cusco. Idioma: Quechua.' },
+  { id:'moche',    cls:'c-moche',    emoji:'🏺', nombre:'Moche',    dato:'Maestros de la cerámica. Costa norte del Perú, 100–800 d.C.' },
+  { id:'nazca',    cls:'c-nazca',    emoji:'🦅', nombre:'Nazca',    dato:'Famosos por las Líneas de Nazca, geoglifos en el desierto de Ica.' },
+  { id:'tiwanaku', cls:'c-tiwanaku', emoji:'🗿', nombre:'Tiwanaku', dato:'La Puerta del Sol es su símbolo. Centro ceremonial en el altiplano.' },
+  { id:'chimu',    cls:'c-chimu',    emoji:'🌊', nombre:'Chimú',    dato:'Construyeron Chan Chan, la ciudad de barro más grande del mundo.' },
+  { id:'paracas',  cls:'c-paracas',  emoji:'🎨', nombre:'Paracas',  dato:'Conocidos por sus mantos tejidos de gran colorido y detalle.' },
+  { id:'wari',     cls:'c-wari',     emoji:'🛤️', nombre:'Wari',     dato:'Primer estado expansivo andino. Antecesores del Imperio Inca.' },
+  { id:'chavin',   cls:'c-chavin',   emoji:'🐆', nombre:'Chavín',   dato:'Cultura madre del Perú. Centro en Chavín de Huántar, Áncash.' },
+];
+
+let flipped = [], moves = 0, pairs = 0, locked = false;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for(let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function build() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  moves = 0; pairs = 0; flipped = []; locked = false;
+  document.getElementById('moves').textContent = 0;
+  document.getElementById('pairs').textContent = 0;
+  document.getElementById('msg').textContent = '';
+  document.getElementById('win-panel').style.display = 'none';
+  grid.style.display = 'grid';
+
+  const deck = shuffle([...culturas, ...culturas].map((c, i) => ({...c, uid: i})));
+
+  deck.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'card ' + c.cls;
+    el.dataset.id = c.id;
+    el.innerHTML = `
+      <div class="card-inner">
+        <div class="card-front"><div class="card-front-icon">?</div></div>
+        <div class="card-back">
+          <div class="emoji">${c.emoji}</div>
+          <div class="cultura">${c.nombre}</div>
+          <div class="dato">${c.dato}</div>
+        </div>
+      </div>`;
+    el.addEventListener('click', () => flip(el));
+    grid.appendChild(el);
+  });
+}
+
+function flip(el) {
+  if (locked || el.classList.contains('flipped') || el.classList.contains('matched')) return;
+  el.classList.add('flipped');
+  flipped.push(el);
+  if (flipped.length === 2) {
+    moves++;
+    document.getElementById('moves').textContent = moves;
+    locked = true;
+    setTimeout(check, 950);
+  }
+}
+
+function check() {
+  const [a, b] = flipped;
+  if (a.dataset.id === b.dataset.id) {
+    a.classList.add('matched'); b.classList.add('matched');
+    pairs++;
+    document.getElementById('pairs').textContent = pairs;
+    document.getElementById('msg').textContent = '¡Par encontrado! 🎉';
+    setTimeout(() => { document.getElementById('msg').textContent = ''; }, 1200);
+    if (pairs === 8) setTimeout(win, 500);
+  } else {
+    a.classList.remove('flipped'); b.classList.remove('flipped');
+    document.getElementById('msg').textContent = 'Sigue intentando...';
+    setTimeout(() => { document.getElementById('msg').textContent = ''; }, 950);
+  }
+  flipped = []; locked = false;
+}
+
+function win() {
+  document.getElementById('grid').style.display = 'none';
+  document.getElementById('controls').style.display = 'none';
+  const panel = document.getElementById('win-panel');
+  panel.style.display = 'flex';
+  let cal = moves <= 12 ? '¡Excelente memoria! Terminaste en ' : moves <= 20 ? '¡Muy bien! Terminaste en ' : 'Terminaste en ';
+  document.getElementById('win-msg').textContent = cal + moves + ' intentos. Ya conoces 8 culturas del antiguo Perú. 🇵🇪';
+}
+
+document.getElementById('btn-reset').onclick = build;
+document.getElementById('btn-win-reset').onclick = () => {
+  document.getElementById('controls').style.display = 'flex';
+  build();
+};
+
+build();
+</script>
+</body>
+</html>
